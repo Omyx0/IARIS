@@ -100,6 +100,15 @@ class BehaviorProfile:
     observation_count: int = 0
     first_seen: float = field(default_factory=time.time)
     last_seen: float = field(default_factory=time.time)
+    
+    # Cold Start Bootstrap (similarity matching)
+    bootstrapped: bool = False        # Whether profile was bootstrapped from similar process
+    bootstrap_confidence: float = 0.0 # Confidence of bootstrap (0-1)
+    bootstrap_source: str = ""        # Name of process used for bootstrap
+    
+    # Learning Continuity (EWMA)
+    learning_phase: str = "bootstrap" # "bootstrap", "adaptation", "stable"
+    convergence_progress: float = 0.0 # Learning progress (0-1)
 
     def generate_signature(self) -> str:
         """Generate a behavior signature hash."""

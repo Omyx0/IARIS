@@ -154,6 +154,10 @@ class KnowledgeBase:
         if matches:
             return max(matches, key=lambda p: p.get("last_seen", 0))
         return None
+    
+    def get_all_profiles(self) -> dict[str, dict]:
+        """Get all cached profiles for similarity matching."""
+        return self._profile_cache.copy()
 
     def apply_learned_profile(self, profile: BehaviorProfile) -> bool:
         """Apply previously learned profile data to a new profile."""

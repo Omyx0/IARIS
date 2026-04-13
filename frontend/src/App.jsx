@@ -68,17 +68,25 @@ function App() {
 
   const spawnDummies = async () => {
     try {
-      await fetch(`${API_BASE}/dummy/spawn-demo`, { method: 'POST' });
+      const response = await fetch(`${API_BASE}/dummy/spawn-demo`, { method: 'POST' });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to spawn dummies:', e);
+      alert(`Failed to spawn demo load: ${e.message}\n\nMake sure the backend server is running at localhost:8000`);
     }
   };
 
   const stopAllDummies = async () => {
     try {
-      await fetch(`${API_BASE}/dummy`, { method: 'DELETE' });
+      const response = await fetch(`${API_BASE}/dummy`, { method: 'DELETE' });
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
     } catch (e) {
-      console.error(e);
+      console.error('Failed to stop dummies:', e);
+      alert(`Failed to stop dummies: ${e.message}\n\nMake sure the backend server is running at localhost:8000`);
     }
   };
 
@@ -91,10 +99,15 @@ function App() {
       {/* HEADER */}
       <header className="dashboard-header">
         <div className="header-title">
-          <Activity className="logo-icon" size={32} />
-          <h1>IARIS Intelligence Hub</h1>
-          <span className="badge badge-outline" style={{ marginLeft: 16 }}>
-            {readyState === 1 ? <span style={{color: 'var(--accent-green)'}}>● Live Stream</span> : <span style={{color: 'var(--accent-magenta)'}}>○ Disconnected</span>}
+          <Activity className="logo-icon" size={36} />
+          <div className="flex-col" style={{ gap: '4px' }}>
+            <h1>IARIS Intelligence Hub</h1>
+            <span style={{ fontSize: '13px', color: 'var(--text-secondary)', letterSpacing: '0.5px' }}>
+              Adaptive Resource Allocation & Intent Inference
+            </span>
+          </div>
+          <span className="badge badge-outline" style={{ marginLeft: 24, padding: '6px 12px' }}>
+            {readyState === 1 ? <span style={{color: 'var(--accent-green)'}}>● Live Stream Active</span> : <span style={{color: 'var(--accent-magenta)'}}>○ Disconnected</span>}
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -157,29 +170,35 @@ function App() {
           </div>
 
           <div className="chart-container">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={history}>
-                <defs>
-                  <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--accent-cyan)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--accent-cyan)" stopOpacity={0}/>
-                  </linearGradient>
-                  <linearGradient id="colorMem" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--accent-magenta)" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="var(--accent-magenta)" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="time" hide />
-                <YAxis domain={[0, 100]} tick={{fontSize: 10, fill: 'var(--text-secondary)'}} stroke="transparent" />
-                <Tooltip 
-                  contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
-                  itemStyle={{ fontSize: 12, fontWeight: 'bold' }}
-                />
-                <Area type="monotone" dataKey="cpu" stroke="var(--accent-cyan)" fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
-                <Area type="monotone" dataKey="memory" stroke="var(--accent-magenta)" fillOpacity={1} fill="url(#colorMem)" isAnimationActive={false} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {history && history.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={history}>
+                  <defs>
+                    <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--accent-cyan)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--accent-cyan)" stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorMem" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--accent-magenta)" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="var(--accent-magenta)" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="time" hide />
+                  <YAxis domain={[0, 100]} tick={{fontSize: 10, fill: 'var(--text-secondary)'}} stroke="transparent" />
+                  <Tooltip 
+                    contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8 }}
+                    itemStyle={{ fontSize: 12, fontWeight: 'bold' }}
+                  />
+                  <Area type="monotone" dataKey="cpu" stroke="var(--accent-cyan)" fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
+                  <Area type="monotone" dataKey="memory" stroke="var(--accent-magenta)" fillOpacity={1} fill="url(#colorMem)" isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-secondary)' }}>
+                Waiting for system data...
+              </div>
+            )}
           </div>
         </div>
 
