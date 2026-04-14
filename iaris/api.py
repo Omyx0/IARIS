@@ -167,6 +167,9 @@ async def get_state():
     return engine.get_state()
 
 
+
+
+
 @app.get("/api/system")
 async def get_system():
     """Get system-wide metrics."""
@@ -315,6 +318,107 @@ async def get_config():
         "pressure_memory_threshold": cfg.pressure_memory_threshold,
         "critical_memory_threshold": cfg.critical_memory_threshold,
     }
+
+
+
+# ─── Action Endpoints ─────────────────────────────────────────────────────────
+
+class ActionRequest(BaseModel):
+    pid: Optional[int] = None
+
+
+@app.post("/api/action/throttle")
+async def action_throttle(req: ActionRequest):
+    """Mark a process intent for throttle (informational — engine decides autonomously)."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    return {
+        "status": "noted",
+        "action": "throttle",
+        "pid": req.pid,
+        "note": "IARIS will apply throttle on next tick if conditions warrant.",
+    }
+
+
+@app.post("/api/action/maintain")
+async def action_maintain(req: ActionRequest):
+    """Mark a process intent for maintain."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    return {
+        "status": "noted",
+        "action": "maintain",
+        "pid": req.pid,
+        "note": "IARIS will maintain allocation on next tick.",
+    }
+
+
+# ─── Simulation Aliases ───────────────────────────────────────────────────────
+
+@app.post("/api/simulate/cpu")
+async def simulate_cpu():
+    """Spawn 3 cpu_hog dummy processes — stress CPU."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    spawned = []
+    for _ in range(3):
+        d = engine.simulator.spawn("cpu_hog")
+        if d and d.pid:
+            spawned.append({"pid": d.pid, "type": "cpu_hog"})
+    return {"scenario": "CPU Load Simulation", "spawned": spawned}
+
+
+@app.post("/api/simulate/memory")
+async def simulate_memory():
+    """Spawn 3 memory_heavy dummy processes — pressure memory."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    spawned = []
+    for _ in range(3):
+        d = engine.simulator.spawn("memory_heavy")
+        if d and d.pid:
+            spawned.append({"pid": d.pid, "type": "memory_heavy"})
+    return {"scenario": "Memory Pressure Simulation", "spawned": spawned}
+
+
+@app.post("/api/simulate/traffic")
+async def simulate_traffic():
+    """Spawn 3 latency_sensitive dummy processes — simulates web traffic."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    spawned = []
+    for _ in range(3):
+        d = engine.simulator.spawn("latency_sensitive")
+        if d and d.pid:
+            spawned.append({"pid": d.pid, "type": "latency_sensitive"})
+    return {"scenario": "Web Traffic Simulation", "spawned": spawned}
+
+
+@app.post("/api/reset")
+async def reset_simulation():
+    """Stop all dummy processes — clear simulation environment."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    count = engine.simulator.stop_all()
+    return {"status": "cleared", "stopped_count": count}
+
+
+# ─── Insights & Efficiency REST fallback ─────────────────────────────────────
+
+@app.get("/api/insights")
+async def get_insights():
+    """Get latest insight list (REST fallback for clients not on WebSocket)."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    return engine._insight_engine.generate(engine)
+
+
+@app.get("/api/efficiency")
+async def get_efficiency():
+    """Get latest efficiency scores."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    return engine._insight_engine.compute_efficiency(engine)
 
 
 # ─── WebSocket ────────────────────────────────────────────────────────────────

@@ -235,7 +235,7 @@ class ProcessMonitor:
 
             # Yield to event loop after heavy synchronous work
             # so uvicorn can handle HTTP/WebSocket requests
-            await asyncio.sleep(0)
+            await asyncio.sleep(0.1)
 
             # Notify all callbacks
             for callback in self._callbacks:

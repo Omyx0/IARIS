@@ -37,6 +37,7 @@ from iaris.simulator import ProcessSimulator
 from iaris.similarity import ColdStartResolver  # ← Cold start solution
 from iaris.cache import OptimizationPipeline      # ← Overhead solution
 from iaris.continuity import LearningAccelerator  # ← Learning delay solution
+from iaris.insights import InsightEngine           # ← Insight + efficiency layer
 
 logger = logging.getLogger("iaris.engine")
 
@@ -77,6 +78,9 @@ class IARISEngine:
         
         # 🐌 Learning Delay Solution — EWMA continuity
         self.accelerator = LearningAccelerator()
+
+        # ─── Insight + Efficiency Engine ─────────────────────────────────────
+        self._insight_engine = InsightEngine()
         
         # State
         self._running = False
@@ -428,4 +432,7 @@ class IARISEngine:
             "decisions": [d.to_dict() for d in list(self._decisions)[-30:]],
             "dummy_processes": self.simulator.get_status(),
             "tick_count": self._tick_count,
+            # ── Insight layer (new) ──────────────────────────────────────────
+            "insights": self._insight_engine.generate(self),
+            "efficiency": self._insight_engine.compute_efficiency(self),
         }

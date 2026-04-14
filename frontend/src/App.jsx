@@ -124,6 +124,102 @@ function SimButton({ icon, label, onClick, variant = '', dangerStyle = false }) 
 }
 
 
+// ═══════════════════════════════════════════════════════════════════════════
+// KNOWLEDGE PANEL — Educational content (static)
+// Each entry answers: What / Why / How to improve
+// ═══════════════════════════════════════════════════════════════════════════
+const KNOWLEDGE_ENTRIES = [
+  {
+    title: 'What is Throttling?',
+    what: 'Throttling reduces the CPU time slice allocated to a process, slowing it down.',
+    why: 'When a CPU hog consumes excessive resources, it starves latency-sensitive processes.',
+    how: 'IARIS automatically throttles low-priority processes when system state enters PRESSURE or CRITICAL.',
+  },
+  {
+    title: 'What is EWMA?',
+    what: 'Exponential Weighted Moving Average — a smoothing algorithm that learns process behavior over time.',
+    why: 'Raw CPU samples are noisy. EWMA gives recent samples more weight while retaining historical context.',
+    how: 'IARIS uses EWMA with α=0.3 (warmup) → α=0.1 (steady) to converge process profiles in 30–90 seconds.',
+  },
+  {
+    title: 'What is a CPU Hog?',
+    what: 'A process classified as cpu_hog sustains CPU usage above 30% across multiple samples.',
+    why: 'Sustained high CPU consumption indicates batch computation, compilation, or runaway loops.',
+    how: 'IARIS throttles cpu_hog processes when system is under pressure, protecting latency-sensitive services.',
+  },
+  {
+    title: 'How does IARIS decide?',
+    what: 'IARIS computes an allocation_score (0–1) per process using behavior type, system state, and priority.',
+    why: 'Score reflects impact: high score = high need for resources. Score drives the throttle/boost/maintain decision.',
+    how: 'Boost: score ≥ 0.6 + system stress. Throttle: score < 0.4 + system pressure. Maintain: everything else.',
+  },
+  {
+    title: 'What is the Cold Start problem?',
+    what: 'On first observation, IARIS has no history for a new process — allocation quality is uncertain.',
+    why: 'Without historical data, the engine cannot accurately classify behavior or score allocation.',
+    how: 'IARIS uses similarity matching to bootstrap new processes from known profiles, achieving ~82% accuracy immediately.',
+  },
+  {
+    title: 'What are Learning Phases?',
+    what: 'Bootstrap → Adaptation → Stable. Each phase reflects how well the engine knows a process.',
+    why: 'Processes in bootstrap have < 10 samples. Adaptation means EWMA is still converging. Stable means high confidence.',
+    how: 'All processes reach stable phase within 90 seconds of observation. Decisions are most accurate in stable phase.',
+  },
+];
+
+function KnowledgePanel() {
+  const [openIdx, setOpenIdx] = React.useState(null);
+  return (
+    <div className="glass-panel" style={{ marginTop: 16 }}>
+      <div className="panel-header">
+        <FlaskConical size={18} color="var(--color-purple)" /> Knowledge Base
+        <span className="text-xs text-secondary" style={{ marginLeft: 'auto' }}>
+          Click any concept to expand
+        </span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {KNOWLEDGE_ENTRIES.map((entry, i) => (
+          <div key={i}
+            style={{
+              border: '1px solid var(--border-color)',
+              borderRadius: 8,
+              overflow: 'hidden',
+              cursor: 'pointer',
+            }}
+            onClick={() => setOpenIdx(openIdx === i ? null : i)}
+          >
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 14px',
+              background: openIdx === i ? 'rgba(var(--accent-primary-rgb, 100, 100, 255), 0.08)' : 'transparent',
+              fontWeight: 600, fontSize: 14,
+            }}>
+              <span>{entry.title}</span>
+              <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{openIdx === i ? '▲' : '▼'}</span>
+            </div>
+            {openIdx === i && (
+              <div style={{ padding: '12px 14px 14px', borderTop: '1px solid var(--border-color)' }}>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--accent-primary)', letterSpacing: 1 }}>WHAT  </span>
+                  <span style={{ fontSize: 13 }}>{entry.what}</span>
+                </div>
+                <div style={{ marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-yellow)', letterSpacing: 1 }}>WHY  </span>
+                  <span style={{ fontSize: 13 }}>{entry.why}</span>
+                </div>
+                <div>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-green)', letterSpacing: 1 }}>HOW  </span>
+                  <span style={{ fontSize: 13 }}>{entry.how}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [gameState, setGameState] = useState({
     system: { cpu_percent: 0, memory_percent: 0, state: 'STABLE', behavior: 'BALANCED' },
@@ -131,7 +227,9 @@ function App() {
     workloads: [],
     decisions: [],
     dummy_processes: [],
-    tick_count: 0
+    tick_count: 0,
+    insights: [],
+    efficiency: { overall: 0, cpu: 0, memory: 0, latency: 0, process_balance: 50 },
   });
 
   const [history, setHistory] = useState([]);
@@ -419,10 +517,11 @@ function App() {
     return '🟢 Stable';
   };
 
-  // Mocking impact metrics
-  const simulatedStability = Math.max(0, Math.min(99.9, 80 + (gameState.tick_count * 0.05) - (sys.cpu_percent > 80 ? 10 : 0)));
-  const simulatedLatency = Math.min(80, Math.max(5, 45 - (gameState.tick_count * 0.1) + (sys.cpu_percent > 80 ? 20 : 0)));
-  const simulatedEfficiency = Math.max(0, Math.min(98, 60 + (gameState.tick_count * 0.08) - (sys.cpu_percent/2)));
+  // Impact metrics — NOW from backend efficiency scores (no Math.random)
+  const eff = gameState.efficiency || { overall: 0, cpu: 0, memory: 0, latency: 0, process_balance: 50 };
+  const simulatedStability    = eff.process_balance;   // process balance = stability proxy
+  const simulatedLatency      = eff.latency;           // real latency score
+  const simulatedEfficiency   = eff.overall;           // real efficiency
 
   // Compute impact deltas
   const [prevImpact, setPrevImpact] = useState({ stability: 0, latency: 0, efficiency: 0 });
@@ -901,7 +1000,141 @@ function App() {
           </table>
         </div>
       </div>
-    
+
+      {/* ═════════════════════════════════════════════════════════════════════
+          INSIGHT FEED — from backend engine (real data only)
+          ═════════════════════════════════════════════════════════════════════ */}
+      <div className="glass-panel" style={{ marginTop: 16 }}>
+        <div className="panel-header">
+          <Zap size={18} color="var(--accent-primary)" /> Insight Feed
+          <span className="badge badge-outline" style={{ marginLeft: 'auto' }}>
+            {gameState.insights?.length || 0} active
+          </span>
+        </div>
+        {gameState.insights && gameState.insights.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {gameState.insights.map((ins, i) => {
+              const sevColor = ins.severity === 'high' ? 'var(--color-red)' : ins.severity === 'medium' ? 'var(--color-yellow)' : 'var(--color-green)';
+              const typeLabel = ins.type.toUpperCase();
+              return (
+                <div key={i} className="metric-card" style={{ borderLeft: `3px solid ${sevColor}`, padding: '12px 16px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                    <span style={{ color: sevColor, fontWeight: 700, fontSize: 12, letterSpacing: 1 }}>{typeLabel}</span>
+                    <span style={{ fontSize: 11, color: 'var(--text-secondary)', background: sevColor + '22', padding: '2px 8px', borderRadius: 4 }}>{ins.severity.toUpperCase()}</span>
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{ins.message}</div>
+                  {ins.why && <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 4 }}><strong>Why:</strong> {ins.why}</div>}
+                  <div style={{ fontSize: 12, color: 'var(--accent-primary)' }}>➜ {ins.recommendation}</div>
+                  {ins.affected_process && <div style={{ fontSize: 11, color: 'var(--text-secondary)', marginTop: 4, fontFamily: 'monospace' }}>Process: {ins.affected_process}</div>}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-sm text-secondary italic text-center" style={{ padding: '24px 0' }}>
+            Engine is observing… insights will appear as patterns emerge.
+          </div>
+        )}
+      </div>
+
+      {/* ═════════════════════════════════════════════════════════════════════
+          THROTTLING  &  LIMITATION PANEL
+          ═════════════════════════════════════════════════════════════════════ */}
+      {(() => {
+        const allDecs = gameState.decisions || [];
+        const throttled = allDecs.filter(d => d.action === 'throttle');
+        const paused    = allDecs.filter(d => d.action === 'pause');
+        const boosted   = allDecs.filter(d => d.action === 'boost');
+        const uniqueThrottled = [...new Set(throttled.map(d => d.process_name))];
+        const avgThrottleScore = throttled.length > 0
+          ? (throttled.reduce((s, d) => s + (d.score || 0), 0) / throttled.length)
+          : 0;
+        const overThrottleInsight = gameState.insights?.find(i => i.type === 'risk' && i.message.toLowerCase().includes('throttle'));
+        return (
+          <div className="glass-panel" style={{ marginTop: 16 }}>
+            <div className="panel-header">
+              <TrendingDown size={18} color="var(--color-red)" /> Throttling &amp; Limitation
+            </div>
+            <div className="top-panels-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+              <div className="metric-card" style={{ textAlign: 'center' }}>
+                <div className="text-xs text-secondary font-bold uppercase" style={{ marginBottom: 4 }}>Throttled</div>
+                <div className="text-lg font-bold" style={{ color: throttled.length > 0 ? 'var(--color-red)' : 'var(--color-green)' }}>{uniqueThrottled.length}</div>
+                <div className="text-xs text-secondary">processes</div>
+              </div>
+              <div className="metric-card" style={{ textAlign: 'center' }}>
+                <div className="text-xs text-secondary font-bold uppercase" style={{ marginBottom: 4 }}>Paused</div>
+                <div className="text-lg font-bold" style={{ color: paused.length > 0 ? 'var(--color-red)' : 'var(--text-secondary)' }}>{[...new Set(paused.map(d=>d.process_name))].length}</div>
+                <div className="text-xs text-secondary">processes</div>
+              </div>
+              <div className="metric-card" style={{ textAlign: 'center' }}>
+                <div className="text-xs text-secondary font-bold uppercase" style={{ marginBottom: 4 }}>Boosted</div>
+                <div className="text-lg font-bold" style={{ color: 'var(--color-green)' }}>{[...new Set(boosted.map(d=>d.process_name))].length}</div>
+                <div className="text-xs text-secondary">processes</div>
+              </div>
+              <div className="metric-card" style={{ textAlign: 'center' }}>
+                <div className="text-xs text-secondary font-bold uppercase" style={{ marginBottom: 4 }}>Avg Score</div>
+                <div className="text-lg font-bold" style={{ color: avgThrottleScore > 0.5 ? 'var(--color-yellow)' : 'var(--text-secondary)' }}>{avgThrottleScore.toFixed(2)}</div>
+                <div className="text-xs text-secondary">throttle intensity</div>
+              </div>
+            </div>
+            {overThrottleInsight && (
+              <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(231,76,60,0.1)', borderRadius: 6, fontSize: 13, color: 'var(--color-red)', border: '1px solid rgba(231,76,60,0.3)' }}>
+                ⚠️ Over-throttle risk: {overThrottleInsight.recommendation}
+              </div>
+            )}
+            {uniqueThrottled.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <div className="text-xs text-secondary font-bold" style={{ marginBottom: 6 }}>THROTTLED PROCESSES</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {uniqueThrottled.slice(0, 10).map((n, i) => (
+                    <span key={i} className="badge badge-critical" style={{ fontSize: 11 }}>{n}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ═════════════════════════════════════════════════════════════════════
+          PREDICTION PANEL — from backend insights (type=prediction)
+          ═════════════════════════════════════════════════════════════════════ */}
+      {(() => {
+        const predictions = (gameState.insights || []).filter(i => i.type === 'prediction');
+        const recommendations = (gameState.insights || []).filter(i => i.type === 'recommendation');
+        return (
+          <div className="simulation-grid" style={{ marginTop: 16 }}>
+            <div className="glass-panel">
+              <div className="panel-header"><Activity size={18} color="var(--color-blue)" /> System Predictions</div>
+              {predictions.length > 0 ? predictions.map((p, i) => (
+                <div key={i} className="metric-card" style={{ marginBottom: 10, borderLeft: '3px solid var(--color-blue)', padding: '10px 14px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{p.message}</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-blue)' }}>➚ {p.recommendation}</div>
+                </div>
+              )) : (
+                <div className="text-sm text-secondary italic" style={{ padding: '20px 0' }}>Gathering data for predictions…</div>
+              )}
+            </div>
+            <div className="glass-panel">
+              <div className="panel-header"><Shield size={18} color="var(--color-green)" /> Recommendations</div>
+              {recommendations.length > 0 ? recommendations.map((r, i) => (
+                <div key={i} className="metric-card" style={{ marginBottom: 10, borderLeft: '3px solid var(--color-green)', padding: '10px 14px' }}>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{r.message}</div>
+                  <div style={{ fontSize: 12, color: 'var(--color-green)' }}>➚ {r.recommendation}</div>
+                </div>
+              )) : (
+                <div className="text-sm text-secondary italic" style={{ padding: '20px 0' }}>No recommendations at this time.</div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ═════════════════════════════════════════════════════════════════════
+          KNOWLEDGE PANEL — static educational content
+          ═════════════════════════════════════════════════════════════════════ */}
+      <KnowledgePanel />
+
     </div>
   );
 }

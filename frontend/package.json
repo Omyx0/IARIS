@@ -1,30 +1,63 @@
 {
-  "name": "frontend",
+  "name": "iaris-desktop",
+  "productName": "IARIS",
+  "description": "IARIS - Intent-Aware Adaptive Resource Intelligence System",
+  "author": "Anurag Mishra",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
+  "main": "electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev":              "node node_modules/vite/bin/vite.js",
+    "build":            "node node_modules/vite/bin/vite.js build",
+    "lint":             "eslint .",
+    "preview":          "node node_modules/vite/bin/vite.js preview",
+    "electron:dev":     "node node_modules/vite/bin/vite.js build && node node_modules/electron/cli.js .",
+    "electron:build":   "node node_modules/vite/bin/vite.js build && node node_modules/electron-builder/cli.js"
   },
   "dependencies": {
-    "lucide-react": "^1.8.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
+    "lucide-react":       "^1.8.0",
+    "react":              "^19.2.4",
+    "react-dom":          "^19.2.4",
     "react-use-websocket": "^4.13.0",
-    "recharts": "^3.8.1"
+    "recharts":           "^3.8.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^9.39.4",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
-    "vite": "^8.0.4"
+    "@eslint/js":                   "^9.39.4",
+    "@types/react":                 "^19.2.14",
+    "@types/react-dom":             "^19.2.3",
+    "@vitejs/plugin-react":         "^6.0.1",
+    "cross-env":                    "^7.0.3",
+    "electron":                     "^31.7.7",
+    "electron-builder":             "^24.13.3",
+    "eslint":                       "^9.39.4",
+    "eslint-plugin-react-hooks":    "^7.0.1",
+    "eslint-plugin-react-refresh":  "^0.5.2",
+    "globals":                      "^17.4.0",
+    "vite":                         "^8.0.4"
+  },
+  "build": {
+    "appId":       "com.iaris.desktop",
+    "productName": "IARIS",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "!node_modules"
+    ],
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon":   "electron/icon.ico"
+    },
+    "nsis": {
+      "oneClick":           false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon":      "electron/icon.ico",
+      "uninstallerIcon":    "electron/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }
