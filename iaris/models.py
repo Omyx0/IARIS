@@ -125,6 +125,7 @@ class SystemSnapshot:
     cpu_percent: float = 0.0
     cpu_count: int = 1
     memory_percent: float = 0.0
+    disk_percent: float = 0.0
     memory_total_gb: float = 0.0
     memory_available_gb: float = 0.0
     disk_io_read_rate: float = 0.0

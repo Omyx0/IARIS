@@ -79,6 +79,14 @@ class ProcessMonitor:
         mem_total_gb = mem.total / (1024 ** 3)
         mem_available_gb = mem.available / (1024 ** 3)
 
+        # Disk usage
+        disk_percent = 0.0
+        try:
+            disk_path = "C:\\" if self._platform == "Windows" else "/"
+            disk_percent = psutil.disk_usage(disk_path).percent
+        except Exception:
+            pass
+
         # Disk I/O rates
         disk_read_rate = 0.0
         disk_write_rate = 0.0
@@ -126,6 +134,7 @@ class ProcessMonitor:
             cpu_percent=cpu_percent,
             cpu_count=cpu_count,
             memory_percent=mem_percent,
+            disk_percent=disk_percent,
             memory_total_gb=round(mem_total_gb, 2),
             memory_available_gb=round(mem_available_gb, 2),
             disk_io_read_rate=disk_read_rate,

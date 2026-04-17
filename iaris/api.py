@@ -410,7 +410,15 @@ async def get_insights():
     """Get latest insight list (REST fallback for clients not on WebSocket)."""
     if not engine:
         raise HTTPException(503, "Engine not initialized")
-    return engine._insight_engine.generate(engine)
+    return engine.get_state().get("insights", [])
+
+
+@app.get("/api/intelligence")
+async def get_intelligence():
+    """Get intelligence summary with significance and cache metadata."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    return engine.get_state().get("intelligence", {})
 
 
 @app.get("/api/efficiency")
@@ -418,7 +426,15 @@ async def get_efficiency():
     """Get latest efficiency scores."""
     if not engine:
         raise HTTPException(503, "Engine not initialized")
-    return engine._insight_engine.compute_efficiency(engine)
+    return engine.get_state().get("efficiency", {})
+
+
+@app.get("/api/credentials/status")
+async def get_credentials_status():
+    """Get safe backend credential status (never returns secret values)."""
+    if not engine:
+        raise HTTPException(503, "Engine not initialized")
+    return engine.get_credential_status()
 
 
 # ─── WebSocket ────────────────────────────────────────────────────────────────

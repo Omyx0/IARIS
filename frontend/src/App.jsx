@@ -60,7 +60,7 @@ function DeltaIndicator({ value, suffix = '%', invert = false, showArrow = true 
   const cls = isGood ? 'delta-positive' : 'delta-negative';
 
   return (
-    <span className={`delta-indicator ${cls}`} key={Math.random()}>
+    <span className={`delta-indicator ${cls}`}>
       {showArrow && arrow} {isPositive ? '+' : ''}{value.toFixed(1)}{suffix}
     </span>
   );
@@ -398,6 +398,8 @@ function App() {
     tick_count: 0,
     insights: [],
     efficiency: { overall: 0, cpu: 0, memory: 0, latency: 0, process_balance: 50 },
+    observability: { snapshot: {}, diff: {}, changes: [], recent_changes: [], significant: false, significance_reason: '' },
+    intelligence: { significant: false, reason: '', used_cache: false, source: 'local', insight: '', last_updated: 0 },
   });
 
   const [history, setHistory] = useState([]);
@@ -424,6 +426,7 @@ function App() {
 
   const prevMetricsRef = useRef(prevMetrics);
   const feedbackIdCounter = useRef(0);
+  const feedbackImpactRef = useRef({ stability: 0, latency: 0, efficiency: 0 });
 
   useEffect(() => { isIarisActiveRef.current = isIarisActive; }, [isIarisActive]);
   useEffect(() => { prevMetricsRef.current = prevMetrics; }, [prevMetrics]);
@@ -489,6 +492,19 @@ function App() {
             cpu: render_cpu - prev.cpu,
             memory: render_memory - prev.memory,
           };
+
+          const currentImpact = {
+            stability: data.efficiency?.process_balance ?? 0,
+            latency: data.efficiency?.latency ?? 0,
+            efficiency: data.efficiency?.overall ?? 0,
+          };
+          const prevImpactInstant = feedbackImpactRef.current;
+          const impactDelta = {
+            stability: currentImpact.stability - prevImpactInstant.stability,
+            latency: currentImpact.latency - prevImpactInstant.latency,
+            efficiency: currentImpact.efficiency - prevImpactInstant.efficiency,
+          };
+          feedbackImpactRef.current = currentImpact;
           
           // Only update deltas if change is significant (>1%)
           if (Math.abs(newDeltas.cpu) > 1 || Math.abs(newDeltas.memory) > 1) {
@@ -514,8 +530,14 @@ function App() {
                   { icon: '🛡️', text: 'Protected critical services' }
                 ],
                 [
-                  { text: `Latency ↓ -${(Math.random() * 20 + 5).toFixed(0)}%`, type: 'positive' },
-                  { text: `Stability ↑ +${(Math.random() * 15 + 8).toFixed(0)}%`, type: 'positive' },
+                  {
+                    text: `Latency ${impactDelta.latency <= 0 ? '↓' : '↑'} ${Math.abs(impactDelta.latency).toFixed(1)}%`,
+                    type: impactDelta.latency <= 0 ? 'positive' : 'negative'
+                  },
+                  {
+                    text: `Stability ${impactDelta.stability >= 0 ? '↑' : '↓'} ${Math.abs(impactDelta.stability).toFixed(1)}%`,
+                    type: impactDelta.stability >= 0 ? 'positive' : 'negative'
+                  },
                   { text: isThrottle ? 'CPU Spike Controlled' : isBoost ? 'Priority Elevated' : 'Load Balanced', type: 'neutral' }
                 ]
               );
@@ -640,7 +662,9 @@ function App() {
   const triggerOverride = (pid, action, pName) => {
     let msg = "";
     if (action === "Force Priority") {
-      msg = `WARNING: Overriding IARIS intent. System stability projected to decrease by ${Math.floor(Math.random() * 8 + 12)}% due to resource starvation caused by ${pName}.`;
+      const efficiency = gameState.efficiency?.overall ?? 50;
+      const projectedDrop = Math.max(8, Math.min(25, (100 - efficiency) * 0.2));
+      msg = `WARNING: Overriding IARIS intent. System stability projected to decrease by ${projectedDrop.toFixed(1)}% due to resource starvation caused by ${pName}.`;
     } else {
       msg = `WARNING: Throttling critical user process manually. Latency metrics rising abruptly.`;
     }
@@ -663,6 +687,9 @@ function App() {
   };
 
   const sys = gameState.system || {};
+  const observability = gameState.observability || { snapshot: {}, diff: {}, changes: [], recent_changes: [] };
+  const intelligence = gameState.intelligence || { insight: '', reason: '', used_cache: false, source: 'local', significant: false, last_updated: 0 };
+  const recentChanges = (observability.recent_changes || []).slice(-10).reverse();
   
   // Latest decision for Action Banner
   const latestDecision = gameState.decisions && gameState.decisions.length > 0 && isIarisActive
@@ -752,6 +779,10 @@ function App() {
   };
 
   const formatPercent = (value) => `${Number(value || 0).toFixed(1)}%`;
+  const formatTime = (unixTs) => {
+    if (!unixTs) return '--:--:--';
+    return new Date(unixTs * 1000).toLocaleTimeString();
+  };
 
   const trackedProcesses = (gameState.processes || []).filter(
     (p) => p.pid !== 0 && !p.name.includes('Idle') && p.name !== 'System'
@@ -1560,7 +1591,6 @@ function App() {
                     </td>
                     <td>
                       <span>{p.avg_cpu.toFixed(1)}</span>
-                      {p.avg_cpu > 5 && <DeltaIndicator value={p.avg_cpu > 30 ? (Math.random() * 5 + 2) : -(Math.random() * 3)} invert={true} />}
                     </td>
                     <td>{p.avg_memory.toFixed(1)}</td>
                   </tr>
@@ -1599,6 +1629,55 @@ function App() {
       {/* ═════════════════════════════════════════════════════════════════════
           INSIGHT FEED — from backend engine (real data only)
           ═════════════════════════════════════════════════════════════════════ */}
+      <div className="glass-panel" style={{ marginTop: 16 }}>
+        <div className="panel-header">
+          <Shield size={18} color="var(--color-blue)" /> Intelligence Layer
+          <span className="badge badge-outline" style={{ marginLeft: 'auto' }}>
+            {intelligence.used_cache ? 'cache reused' : 'fresh'}
+          </span>
+        </div>
+        <div className="intelligence-summary-grid">
+          <div className="metric-card" style={{ padding: '12px 14px' }}>
+            <div className="text-xs text-secondary" style={{ marginBottom: 6 }}>CURRENT INSIGHT</div>
+            <div style={{ fontWeight: 600, lineHeight: 1.4 }}>{intelligence.insight || 'Awaiting meaningful change signal.'}</div>
+            <div className="text-xs text-secondary" style={{ marginTop: 8 }}>
+              Source: {intelligence.source} | Last updated: {formatTime(intelligence.last_updated)}
+            </div>
+          </div>
+          <div className="metric-card" style={{ padding: '12px 14px' }}>
+            <div className="text-xs text-secondary" style={{ marginBottom: 6 }}>SIGNIFICANCE GATE</div>
+            <div style={{ fontWeight: 600, marginBottom: 6 }}>
+              {intelligence.significant ? 'Meaningful change detected' : 'No meaningful change'}
+            </div>
+            <div className="text-sm text-secondary">Reason: {intelligence.reason || 'No reason available'}</div>
+            <div className="text-sm text-secondary">Current snapshot time: {formatTime(observability.snapshot?.timestamp)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="glass-panel" style={{ marginTop: 16 }}>
+        <div className="panel-header">
+          <Activity size={18} color="var(--accent-primary)" /> Observability Feed
+          <span className="badge badge-outline" style={{ marginLeft: 'auto' }}>
+            {(recentChanges || []).length} latest events
+          </span>
+        </div>
+        {recentChanges.length > 0 ? (
+          <div className="observability-feed-list">
+            {recentChanges.map((evt, idx) => (
+              <div key={`${evt.timestamp}-${evt.field}-${idx}`} className={`observability-feed-item severity-${evt.severity || 'minor'}`}>
+                <span className="observability-feed-time">[{formatTime(evt.timestamp)}]</span>
+                <span className="observability-feed-message">{evt.message}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-sm text-secondary italic text-center" style={{ padding: '12px 0' }}>
+            Waiting for the first snapshot diff...
+          </div>
+        )}
+      </div>
+
       <div className="glass-panel" style={{ marginTop: 16 }}>
         <div className="panel-header">
           <Zap size={18} color="var(--accent-primary)" /> Insight Feed
@@ -1665,7 +1744,6 @@ function App() {
                   {w.total_cpu > 0 && (
                     <div className="flex justify-between text-xs" style={{ marginTop: 4 }}>
                       <span style={{ color: 'var(--text-secondary)' }}>CPU: {w.total_cpu?.toFixed(1)}%</span>
-                      <DeltaIndicator value={w.total_cpu > 30 ? -(Math.random() * 5 + 2) : (Math.random() * 3)} invert={true} />
                     </div>
                   )}
                 </div>

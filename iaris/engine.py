@@ -13,10 +13,8 @@ Now includes three core hurdle solutions:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 import os
-import time
 from collections import deque
 from typing import Callable, Optional
 
@@ -38,6 +36,9 @@ from iaris.similarity import ColdStartResolver  # ← Cold start solution
 from iaris.cache import OptimizationPipeline      # ← Overhead solution
 from iaris.continuity import LearningAccelerator  # ← Learning delay solution
 from iaris.insights import InsightEngine           # ← Insight + efficiency layer
+from iaris.credentials import CredentialManager
+from iaris.intelligence import IntelligenceLayer
+from iaris.observability import ObservabilityTracker, build_snapshot
 
 logger = logging.getLogger("iaris.engine")
 
@@ -81,6 +82,9 @@ class IARISEngine:
 
         # ─── Insight + Efficiency Engine ─────────────────────────────────────
         self._insight_engine = InsightEngine()
+        self._credentials = CredentialManager()
+        self._observability = ObservabilityTracker(max_events=240)
+        self._intelligence = IntelligenceLayer(cache_ttl_seconds=45)
         
         # State
         self._running = False
@@ -97,6 +101,34 @@ class IARISEngine:
         self._cold_start_count = 0
         self._cache_hits = 0
         self._cache_misses = 0
+
+        # Runtime payload caches for UI and APIs
+        self._latest_insights: list[dict] = []
+        self._latest_efficiency: dict = {
+            "overall": 0,
+            "cpu": 0,
+            "memory": 0,
+            "latency": 0,
+            "process_balance": 50,
+        }
+        self._latest_observability: dict = {
+            "snapshot": build_snapshot(self._system, {}),
+            "diff": {},
+            "changes": [],
+            "recent_changes": [],
+            "significant": False,
+            "significance_reason": "No change detected",
+        }
+        self._latest_intelligence: dict = {
+            "significant": False,
+            "reason": "No change detected",
+            "used_cache": False,
+            "source": "local",
+            "insight": "System stable. No significant changes detected.",
+            "last_updated": self._system.timestamp,
+            "cache_age_seconds": 0,
+            "cache_ttl_seconds": 45,
+        }
 
     @property
     def decisions(self) -> list[AllocationDecision]:
@@ -120,6 +152,9 @@ class IARISEngine:
     def initialize(self) -> None:
         """Initialize all subsystems."""
         logger.info("Initializing IARIS Engine...")
+
+        # Load backend-managed credentials once at startup.
+        self._credentials.load()
 
         # Initialize knowledge base
         self.knowledge.initialize()
@@ -266,6 +301,18 @@ class IARISEngine:
             system.process_count,
         )
 
+        # Compute derived insight/observability payloads once per tick.
+        self._latest_insights = self._insight_engine.generate(self)
+        self._latest_efficiency = self._insight_engine.compute_efficiency(self)
+
+        observability_update = self._observability.update(build_snapshot(system, processes))
+        self._latest_observability = observability_update.to_dict()
+        self._latest_intelligence = self._intelligence.evaluate(
+            observability=self._latest_observability,
+            engine_insights=self._latest_insights,
+            credentials=self._credentials.get_store(),
+        )
+
     def _persist_state(self) -> None:
         """Persist current state to knowledge base."""
         for profile in self._profiles.values():
@@ -386,6 +433,10 @@ class IARISEngine:
             }
         }
 
+    def get_credential_status(self) -> dict:
+        """Safe credential status for diagnostics and UI."""
+        return self._credentials.status()
+
     def get_state(self) -> dict:
         """Get complete engine state as a dictionary (for API/UI consumption)."""
         return {
@@ -393,6 +444,7 @@ class IARISEngine:
                 "cpu_percent": round(self._system.cpu_percent, 1),
                 "cpu_count": self._system.cpu_count,
                 "memory_percent": round(self._system.memory_percent, 1),
+                "disk_percent": round(self._system.disk_percent, 1),
                 "memory_total_gb": self._system.memory_total_gb,
                 "memory_available_gb": round(self._system.memory_available_gb, 2),
                 "disk_io_read_rate": round(self._system.disk_io_read_rate, 0),
@@ -433,6 +485,9 @@ class IARISEngine:
             "dummy_processes": self.simulator.get_status(),
             "tick_count": self._tick_count,
             # ── Insight layer (new) ──────────────────────────────────────────
-            "insights": self._insight_engine.generate(self),
-            "efficiency": self._insight_engine.compute_efficiency(self),
+            "insights": self._latest_insights,
+            "efficiency": self._latest_efficiency,
+            # ── Observability + Intelligence layers ─────────────────────────
+            "observability": self._latest_observability,
+            "intelligence": self._latest_intelligence,
         }

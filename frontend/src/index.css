@@ -1167,6 +1167,52 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin: 0; }
 .decision-card-header { display: flex; justify-content: space-between; align-items: center; }
 .decision-card-title { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px; }
 
+.intelligence-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.observability-feed-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.observability-feed-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.observability-feed-time {
+  min-width: 82px;
+  font-family: monospace;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.observability-feed-message {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.observability-feed-item.severity-major {
+  border-left: 3px solid var(--color-red);
+}
+
+.observability-feed-item.severity-moderate {
+  border-left: 3px solid var(--color-yellow);
+}
+
+.observability-feed-item.severity-minor {
+  border-left: 3px solid var(--color-blue);
+}
+
 @media (max-width: 1280px) {
   .visualization-layout {
     grid-template-columns: 1fr;
@@ -1204,6 +1250,10 @@ h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; margin: 0; }
 
   .impact-throttle-stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .intelligence-summary-grid {
+    grid-template-columns: 1fr;
   }
 
   .dashboard-container {
