@@ -50,18 +50,8 @@
     ],
     "extraResources": [
       {
-        "from": "../.venv",
-        "to": "venv",
-        "filter": [
-          "**/*"
-        ]
-      },
-      {
-        "from": "../iaris",
-        "to": "iaris",
-        "filter": [
-          "**/*"
-        ]
+        "from": "../dist/iaris_engine.exe",
+        "to": "iaris_engine.exe"
       }
     ],
     "win": {

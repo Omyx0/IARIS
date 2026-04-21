@@ -21,10 +21,28 @@ const API_BASE    = `http://127.0.0.1:${PORT}`;
 const POLL_MS     = 500;
 const POLL_TIMEOUT_MS = 15000;  // 15 seconds max wait
 
-// In packaged mode, backend resources live under process.resourcesPath.
+const EXE_NAME = 'iaris_engine.exe';
 const DEV_PROJECT_ROOT = path.join(__dirname, '..', '..');
 const PROJECT_ROOT = app.isPackaged ? process.resourcesPath : DEV_PROJECT_ROOT;
 const FRONTEND_INDEX = path.join(__dirname, '..', 'dist', 'index.html');
+
+function resolveBackendPath() {
+  const candidates = [
+    // Packaged mode: in resources/
+    path.join(process.resourcesPath, EXE_NAME),
+    // Development mode: in dist/ (where PyInstaller builds it)
+    path.join(DEV_PROJECT_ROOT, 'dist', EXE_NAME),
+  ];
+
+  console.log('[IARIS] Searching for backend executable in candidates:');
+  candidates.forEach(c => console.log(`  - ${c}`));
+
+  const found = candidates.find((candidate) => fs.existsSync(candidate)) || null;
+  console.log(`[IARIS] Using backend executable: ${found}`);
+  return found;
+}
+
+const BACKEND_EXE = resolveBackendPath();
 
 // Debug logging for paths
 console.log(`[IARIS] App packaged: ${app.isPackaged}`);
@@ -33,27 +51,7 @@ console.log(`[IARIS] Resources path: ${process.resourcesPath}`);
 console.log(`[IARIS] Project root: ${PROJECT_ROOT}`);
 console.log(`[IARIS] Frontend index: ${FRONTEND_INDEX}`);
 
-function resolvePythonBin() {
-  const candidates = [
-    process.env.IARIS_PYTHON_BIN,
-    // When packaged, venv is bundled in resources
-    path.join(process.resourcesPath, 'venv', 'Scripts', 'python.exe'),
-    // Development mode (.venv is preferred)
-    path.join(DEV_PROJECT_ROOT, '.venv', 'Scripts', 'python.exe'),
-    path.join(DEV_PROJECT_ROOT, 'venv', 'Scripts', 'python.exe'),
-    // Fallback: system python
-    'python.exe'
-  ].filter(Boolean);
-
-  console.log('[IARIS] Searching for Python binary in candidates:');
-  candidates.forEach(c => console.log(`  - ${c}`));
-
-  const found = candidates.find((candidate) => fs.existsSync(candidate)) || null;
-  console.log(`[IARIS] Using Python binary: ${found}`);
-  return found;
-}
-
-const PYTHON_BIN = resolvePythonBin();
+// (Python bin resolution removed in favor of standalone executable)
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
@@ -67,31 +65,20 @@ let startupError = '';
 // ─── Backend Management ───────────────────────────────────────────────────────
 
 function spawnBackend() {
-  if (!PYTHON_BIN) {
-    startupError = 'Python runtime not found. Expected bundled venv at resources/venv.';
+  if (!BACKEND_EXE) {
+    startupError = 'Backend executable not found. Expected iaris_engine.exe.';
     console.error('[IARIS] ' + startupError);
     return;
   }
 
-  console.log('[IARIS] Spawning backend:', PYTHON_BIN);
-  console.log('[IARIS] Project root:    ', PROJECT_ROOT);
+  console.log('[IARIS] Spawning backend:', BACKEND_EXE);
+  console.log('[IARIS] CWD:             ', PROJECT_ROOT);
 
-  // Set up environment for Python subprocess
-  const env = {
-    ...process.env,
-    PYTHONUNBUFFERED: '1',
-    PYTHONPATH: PROJECT_ROOT, // Ensure iaris module can be found
-  };
-
-  backendProc = spawn(
-    PYTHON_BIN,
-    ['-m', 'uvicorn', 'iaris.api:app', '--host', '127.0.0.1', '--port', String(PORT), '--log-level', 'warning'],
-    {
-      cwd:      PROJECT_ROOT,
-      detached: false,
-      env:      env,
-    }
-  );
+  backendProc = spawn(BACKEND_EXE, [String(PORT)], {
+    cwd:      PROJECT_ROOT,
+    detached: false,
+    env:      { ...process.env, PYTHONUNBUFFERED: '1' },
+  });
 
   backendProc.stdout.on('data', d => process.stdout.write('[backend] ' + d));
   backendProc.stderr.on('data', d => process.stderr.write('[backend] ' + d));
