@@ -33,7 +33,8 @@ import {
   Check,
   FlaskConical,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  Info
 } from 'lucide-react';
 import {
   XAxis,
@@ -393,6 +394,7 @@ function KnowledgePanel({ gameState, isIarisActive }) {
 function App() {
   const tabConfig = [
     { id: 'HOME', label: 'Home Page', icon: <Home size={16} /> },
+    { id: 'OVERVIEW', label: 'Overview', icon: <Info size={16} /> },
     { id: 'VISUALIZATION', label: 'Visualization', icon: <ActivitySquare size={16} /> },
     { id: 'IMPACT ANALYSIS', label: 'Analysis', icon: <BarChartIcon size={16} /> },
     { id: 'KEY INSIGHTS', label: 'Insights', icon: <Lightbulb size={16} /> },
@@ -1278,6 +1280,35 @@ function App() {
                 <span style={{ color: 'var(--accent-primary)', fontWeight: 700 }}> {v}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'OVERVIEW' && (
+        <div className="home-layout" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="glass-panel" style={{ padding: '32px', borderRadius: '12px' }}>
+            <h1 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: '16px', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <Info size={32} color="var(--accent-primary)" /> Brief Overview
+            </h1>
+            <div style={{ lineHeight: '1.8', fontSize: '1.1em', color: 'var(--text-secondary)' }}>
+              <p style={{ marginBottom: '16px' }}>
+                IARIS (Intent-Aware Adaptive Resource Intelligence System) is a desktop-based advisory system that improves how computers manage resources by learning from real-time process behavior. Instead of reacting blindly like traditional system tools, IARIS observes usage patterns, predicts future needs, and provides explainable recommendations to optimize performance.
+              </p>
+              <p style={{ marginBottom: '16px' }}>
+                It solves key limitations of modern systems—such as lack of prediction, poor transparency, and inefficient resource handling—through three core approaches:
+              </p>
+              <ul style={{ marginBottom: '16px', paddingLeft: '24px', listStyleType: 'disc' }}>
+                <li style={{ marginBottom: '8px' }}><strong>Similarity-based bootstrapping</strong> to handle cold-start scenarios by matching new processes with known patterns</li>
+                <li style={{ marginBottom: '8px' }}><strong>Delta-based caching</strong> to minimize monitoring overhead by recomputing only when behavior changes</li>
+                <li style={{ marginBottom: '8px' }}><strong>Adaptive learning</strong> (EWMA with dynamic alpha) to ensure fast yet stable learning over time</li>
+              </ul>
+              <p style={{ marginBottom: '16px' }}>
+                Additionally, IARIS introduces a human-in-the-loop feedback system with visualization, simulation, and tuning controls. Users can understand system decisions, preview outcomes, and safely apply optimizations.
+              </p>
+              <p>
+                Overall, IARIS transforms resource management from a reactive process into a predictive, explainable, and interactive system, making computers more efficient and transparent to users.
+              </p>
+            </div>
           </div>
         </div>
       )}
